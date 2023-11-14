@@ -1,7 +1,16 @@
 {
     // "python.analysis.extraPaths": ["./src"],
     "python.analysis.autoImportCompletions": true,
-    "files.trimTrailingWhitespace": true,
+    "python.analysis.typeCheckingMode": "basic",
     "editor.defaultFormatter": "ms-python.black-formatter",
-    "python.analysis.typeCheckingMode": "basic"
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true,
+        "files.trimTrailingWhitespace": true,
+    },
+    "vim.smartRelativeLine": true,
+    "workbench.colorCustomizations": {
+        "titleBar.activeBackground": "#38329A"
+    }
 }
