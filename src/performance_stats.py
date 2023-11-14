@@ -1,4 +1,4 @@
-class PerformanceStats():
+class PerformanceStats:
     def __init__(self) -> None:
         pass
 

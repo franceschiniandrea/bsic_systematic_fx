@@ -1,4 +1,4 @@
 """Run the strategy
 """
 
-print('WIP')
+print("WIP")
