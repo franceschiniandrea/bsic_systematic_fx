@@ -152,8 +152,9 @@ class Backtest:
         log.debug("-" * 20 + "COMPUTE STATS" + "-" * 20)
 
         pnl = self.pnl[["total", "total_pct"]].copy()
+        log.debug(f"pnl:\n{pnl}")
 
-        def compute_return(col):
+        def compute_return(col: pd.Series):
             return col.mean() * len(col)
 
         def compute_vol(col):
@@ -164,6 +165,8 @@ class Backtest:
         sharpe = y_return / y_vol
 
         df = pd.DataFrame({"return": y_return, "vol": y_vol, "sharpe": sharpe})
+        df.index = df.index.year
+        df.loc["average"] = df.mean(axis=0)
 
         print(df)
 
