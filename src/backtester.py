@@ -131,6 +131,24 @@ class Backtest:
 
         self.pnl = pnl
 
+    def compute_stats(self):
+        log.debug("-" * 20 + "COMPUTE STATS" + "-" * 20)
+
+        pnl = self.pnl[["total", "total_pct"]].copy()
+
+        def compute_return(col):
+            return col.mean() * len(col)
+
+        def compute_vol(col):
+            return col.std() * np.sqrt(len(col))
+
+        y_return = pnl["total_pct"].resample("Y").apply(compute_return)
+        y_vol = pnl["total_pct"].resample("Y").apply(compute_vol)
+        sharpe = y_return / y_vol
+
+        df = pd.DataFrame({"return": y_return, "vol": y_vol, "sharpe": sharpe})
+
+        print(df)
 
     def run(self):
         self.compute_signals(Fixes.LON)
