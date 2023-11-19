@@ -34,10 +34,17 @@ class Backtest:
         self.ma_window = ma_window
         self.currencies = fx_lon_fixes.columns
         self.countries = [cur[:3] for cur in self.currencies]
-        self.positions = np.zeros(len(self.currencies))
-
-        self.ma_lon = self.swaps_lon_fixes.rolling(ma_window).mean()  # use EWMA?
-        self.ma_ny = self.swaps_ny_fixes.rolling(ma_window).mean()
+        # initialize positions
+        self.positions = pd.DataFrame(
+            index=fx_lon_fixes.index, columns=self.currencies, dtype=float
+        )
+        self.positions.fillna(0, inplace=True)
+        # initialize signals for LON and NY fixes
+        self.signals_lon = pd.DataFrame(
+            index=fx_lon_fixes.index, columns=self.currencies, dtype=int
+        )
+        self.signals_lon.fillna(0, inplace=True)
+        self.signals_ny = self.signals_lon.copy()
 
     def compute_signals(self, fix: Fixes):
         countries, ma_window = self.countries, self.ma_window
