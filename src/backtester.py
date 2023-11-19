@@ -113,10 +113,25 @@ class Backtest:
             col_data[(col_data.abs() > thresholds) & (col_data < 0)] = -1
             col_data[col_data.abs() != 1] = 0
 
-            signals[country1 + "USD"] += col_data
-            signals[country2 + "USD"] -= col_data
+            if country1 != "USD":
+                signal[country1 + "USD"] += col_data
+            if country2 != "USD":
+                signal[country2 + "USD"] -= col_data
 
-    def compute_positions(self, fix: Fixes, target_gross_exposure: float = 1_000_000):
+        # compute if the strategy should rebalance on that day
+        rebalancedf = signal.copy()
+        rebalancedf["diff"] = np.nan
+        rebalancedf.loc[rebalancedf.index.hour == 22, "diff"] = (
+            rebalancedf.diff()[rebalancedf.index.hour == 22].abs().sum(axis=1)
+        )
+        rebalancedf["rebalance"] = rebalancedf["diff"] > 14
+        print("rebalance?\n", rebalancedf.tail(20))
+        print(rebalancedf[rebalancedf["rebalance"] == True].tail(20))
+        print(
+            f'rebalancing on {len(rebalancedf[rebalancedf["rebalance"] == True])} days (out of {len(rebalancedf) / 2 })'
+        )
+        signal["rebalance"] = rebalancedf["rebalance"]
+
         log.debug("-" * 20 + "COMPUTE POSITIONS" + "-" * 20)
 
         signal = self.signals_lon if fix == Fixes.LON else self.signals_ny
