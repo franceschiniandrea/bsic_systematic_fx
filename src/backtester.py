@@ -31,79 +31,63 @@ class Backtest:
         self.ma_lon = self.swaps_lon_fixes.rolling(ma_window).mean()  # use EWMA?
         self.ma_ny = self.swaps_ny_fixes.rolling(ma_window).mean()
 
-    def signal(self, date: str, fix: Literal["NY", "LON"]):
+    def compute_signals(self, fix: Fixes):
         countries, ma_window = self.countries, self.ma_window
-        n_countries = len(countries)
 
-        if fix == "LON":
+        if fix == Fixes.LON:
             swaps_data = self.swaps_lon_fixes
-            fx_data = self.fx_lon_fixes
-        elif fix == "NY":
-            swaps_data = self.swaps_ny_fixes
-            fx_data = self.fx_ny_fixes
+            signals = self.signals_lon
         else:
-            raise Exception("Invalid fix")
+            swaps_data = self.swaps_ny_fixes
+            signals = self.signals_ny
 
-        swaps_data = swaps_data[swaps_data.index <= date]
-        fx_data = fx_data[fx_data.index <= date]
-
-        # check that the columns are aligned between ny and lon
-        signals = pd.DataFrame(
-            data=np.zeros(n_countries), index=countries, columns=["signal"]
-        )
-        subsignalsdf = pd.DataFrame(
-            index=countries,
-            columns=countries,
-        )
-
+        pairs = ["".join(pair) for pair in combinations(countries, 2)]
+        subsignals = pd.DataFrame(columns=pairs, dtype=float, index=swaps_data.index)
         for i, country1 in enumerate(countries):
-            subsignals = []
-
             country1_cur = country1 + "USD"
             for country2 in countries[i + 1 :]:
                 country2_cur = country2 + "USD"
+                # print("-" * 50)
+                # print(swaps_data[country1_cur], swaps_data[country2_cur])
+                # print("-" * 50)
+                diff = swaps_data[country1_cur] - swaps_data[country2_cur]
+                avg = diff.rolling(
+                    ma_window,
+                ).mean()
 
-                diff = pd.to_numeric(
-                    swaps_data.loc[date, country1_cur]
-                ) - pd.to_numeric(swaps_data.loc[date, country2_cur])
+                subsignals_col = (diff - avg) / np.abs(avg)
+                log.debug(f"diff for {country1}-{country2}:\n{diff}")
+                log.debug(f"avg for {country1}-{country2}:\n{avg}")
+                log.debug(f"subsignals for {country1}-{country2}:\n{subsignals_col}")
 
-                ma = swaps_data[country1_cur] - swaps_data[country2_cur]
-                average = ma[
-                    ma.index >= pd.to_datetime(date) - pd.Timedelta(days=ma_window)
-                ].mean()
+                subsignals[country1 + country2] = subsignals_col
 
-                sub_signal = (diff - average) / abs(average)
-                subsignals.append(sub_signal)
-                subsignalsdf.loc[country1, country2] = sub_signal
+        # we now have the subsignals for all dates for all combinations of countries
 
-        thresholds = subsignalsdf.quantile(axis=0)
-        subsignalsdf["0.5_quantile"] = subsignalsdf.quantile(
-            axis=1,
+        # compute the threshold for each country
+        subsignals["threshold"] = subsignals.abs().quantile(
+            axis=1, q=0.5, numeric_only=True
         )
+        log.debug(f"subsignals:\n{subsignals}")
 
-        all_subsignals = subsignalsdf.values.flatten()
-        all_subsignals = np.abs(all_subsignals[~np.isnan(all_subsignals)])
-        quantile_all = np.quantile(all_subsignals, 0.5)
-        print(subsignalsdf)
-        print(all_subsignals)
-        print(quantile_all)
+        # compute the composite signals for each country
+        log.debug("-" * 20 + "COMPOSITE SIGNALS" + "-" * 20)
+        for col in subsignals.drop("threshold", axis=1).columns:
+            country1, country2 = col[:3], col[3:]
 
-        for country, threshold in zip(countries, thresholds):
-            row = subsignalsdf.loc[country]
-            for subsignal in row:
-                if abs(subsignal) > threshold:
-                    signals.loc[country] += 1 if subsignal > 0 else -1
-                else:
-                    signals.loc[country] -= 1 if subsignal > 0 else -1
+            thresholds = subsignals["threshold"]
+            col_data = subsignals[col].copy()
 
-        return signals
+            # find dates where the subsignal is above the threshold
+            # how does this handle NaNs?
 
-    def rebalance(self, signal, positions):
-        nominal_per_instrument = 100_000  # target a gross exposure in dollars
-        new_positions = signal * nominal_per_instrument
+            col_data[(col_data.abs() > thresholds) & (col_data >= 0)] = 1
+            col_data[(col_data.abs() > thresholds) & (col_data < 0)] = -1
+            col_data[col_data.abs() != 1] = 0
 
-        rebalance = new_positions - self.positions
-        return rebalance
+            signals[country1 + "USD"] += col_data
+            signals[country2 + "USD"] -= col_data
+
 
     def run(self):
         pass
