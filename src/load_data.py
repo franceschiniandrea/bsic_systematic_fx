@@ -4,14 +4,13 @@ import numpy as np
 import pandas as pd
 
 
-def load_data():
-    print(os.getcwd())
+def load_data(data_dir: str = "data"):
     # FX Fixes
     fx_lon_fix = pd.read_excel(
-        "data/fx_fixes.xlsx", sheet_name="LON_Fix", index_col=0, parse_dates=True
+        data_dir + "/fx_fixes.xlsx", sheet_name="LON_Fix", index_col=0, parse_dates=True
     )
     fx_ny_fix = pd.read_excel(
-        "data/fx_fixes.xlsx", sheet_name="NY_Fix", index_col=0, parse_dates=True
+        data_dir + "/fx_fixes.xlsx", sheet_name="NY_Fix", index_col=0, parse_dates=True
     )
     fx_lon_fix.columns = [col.split()[0] for col in fx_lon_fix.columns]
     fx_ny_fix.columns = [col.split()[0] for col in fx_ny_fix.columns]
@@ -45,10 +44,10 @@ def load_data():
         "US": "USD",
     }
     swaps_lon_fix = pd.read_excel(
-        "data/swaps_fixes.xlsx", sheet_name="LON_Fix", index_col=0, parse_dates=True
+        data_dir + "/swaps_fixes.xlsx", sheet_name="LON_Fix", index_col=0
     )
     swaps_ny_fix = pd.read_excel(
-        "data/swaps_fixes.xlsx", sheet_name="NY_Fix", index_col=0, parse_dates=True
+        data_dir + "/swaps_fixes.xlsx", sheet_name="NY_Fix", index_col=0
     )
     swaps_lon_fix.columns = [
         countries_to_fx[col.split()[0][:2]] for col in swaps_lon_fix.columns
