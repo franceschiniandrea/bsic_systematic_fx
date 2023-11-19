@@ -4,6 +4,11 @@ import numpy as np
 import pandas as pd
 
 
+def process_dates(df: pd.DataFrame, hour: int):
+    df.index = pd.to_datetime(df.index, utc=True)
+    df.index = df.index.map(lambda x: x.replace(hour=hour))
+
+
 def load_data(data_dir: str = "data"):
     # FX Fixes
     fx_lon_fix = pd.read_excel(
@@ -12,8 +17,14 @@ def load_data(data_dir: str = "data"):
     fx_ny_fix = pd.read_excel(
         data_dir + "/fx_fixes.xlsx", sheet_name="NY_Fix", index_col=0, parse_dates=True
     )
+
     fx_lon_fix.columns = [col.split()[0] for col in fx_lon_fix.columns]
     fx_ny_fix.columns = [col.split()[0] for col in fx_ny_fix.columns]
+    process_dates(fx_lon_fix, 16)
+    process_dates(fx_ny_fix, 22)
+
+    fx_fixes = [fx_lon_fix, fx_ny_fix]
+    fx_fixes = pd.concat(fx_fixes)
 
     def convert_fx(df: pd.DataFrame):
         new_df = df.copy()
@@ -24,10 +35,7 @@ def load_data(data_dir: str = "data"):
 
         return new_df
 
-    fx_lon_fix = convert_fx(fx_lon_fix)
-    fx_ny_fix = convert_fx(fx_ny_fix)
-    fx_lon_fix.head()
-    fx_ny_fix.head()
+    fx_fixes = convert_fx(fx_fixes)
 
     # Swaps Fixes
     countries_to_fx = {
@@ -55,10 +63,13 @@ def load_data(data_dir: str = "data"):
     swaps_ny_fix.columns = [
         countries_to_fx[col.split()[0][:2]] for col in swaps_ny_fix.columns
     ]
+    process_dates(swaps_lon_fix, 16)
+    process_dates(swaps_ny_fix, 22)
+    swaps_fixes = [swaps_lon_fix, swaps_ny_fix]
+    swaps_fixes = pd.concat(swaps_fixes)
 
-    swaps_lon_fix.sort_index(inplace=True)
-    swaps_ny_fix.sort_index(inplace=True)
-    fx_lon_fix.sort_index(inplace=True)
-    fx_lon_fix.sort_index(inplace=True)
+    # sort the indices
+    fx_fixes.sort_index(inplace=True)
+    swaps_fixes.sort_index(inplace=True)
 
-    return fx_lon_fix, fx_ny_fix, swaps_lon_fix, swaps_ny_fix
+    return fx_fixes, swaps_fixes
