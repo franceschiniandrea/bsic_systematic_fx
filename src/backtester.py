@@ -122,17 +122,6 @@ class Backtest:
 
 
     def run(self):
-        pass
-
-    def plot(self):
-        pass
-
-    def test(self, date):
-        print(self.fx_lon_fixes)
-        print(self.fx_ny_fixes)
-        print(self.swaps_lon_fixes)
-        print(self.swaps_ny_fixes)
-        signal = self.signal(date, "LON")
-        print(signal)
-        rebalancing_amt = self.rebalance(signal, self.positions)
-        print(rebalancing_amt)
+        self.compute_signals(Fixes.LON)
+        self.compute_positions(Fixes.LON)
+        self.compute_pnl()
