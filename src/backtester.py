@@ -12,7 +12,21 @@ import pandas as pd
 logging.basicConfig(stream=sys.stdout)
 log = logging.getLogger()
 
-Fixes = Enum("Fixes", ["LON", "NY"])
+spreads_dict = {
+    "spread": {
+        "AUDUSD": 0.006 / 100,
+        "CADUSD": 0.010 / 100,
+        "CHFUSD": 0.011 / 100,
+        "DKKUSD": 0.005 / 100,
+        "EURUSD": 0.0036 / 100,
+        "GBPUSD": 0.005 / 100,
+        "JPYUSD": 0.006 / 100,
+        "NOKUSD": 0.035 / 100,
+        "NZDUSD": 0.014 / 100,
+        "SEKUSD": 0.032 / 100,
+    }
+}
+spreads = pd.DataFrame.from_dict(spreads_dict, orient="index")
 
 
 class Backtest:
@@ -112,6 +126,15 @@ class Backtest:
         nominal_exposures = signal * base_amt.to_numpy().reshape(-1, 1)
         self.positions[:] = nominal_exposures
         print("POS COLS", self.positions.columns)
+
+    def compute_transaction_costs(self):
+        log.debug("-" * 20 + "COMPUTE TC" + "-" * 20)
+        positions = self.positions
+        spreads = self.spreads.reindex(columns=positions.columns)
+
+        position_chg = positions.diff().abs()
+        tc = position_chg * spreads.to_numpy()
+        return tc
 
     def compute_pnl(self):
         log.debug("-" * 20 + "COMPUTE PNL" + "-" * 20)
