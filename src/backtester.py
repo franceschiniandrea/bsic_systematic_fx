@@ -32,33 +32,28 @@ spreads = pd.DataFrame.from_dict(spreads_dict, orient="index")
 class Backtest:
     def __init__(
         self,
-        fx_lon_fixes: pd.DataFrame,
-        fx_ny_fixes: pd.DataFrame,
-        swaps_lon_fixes: pd.DataFrame,
-        swaps_ny_fixes: pd.DataFrame,
+        fx_fixes: pd.DataFrame,
+        swaps_fixes: pd.DataFrame,
         ma_window: int = 15,
         logging_level: int = 0,
     ) -> None:
-        self.fx_lon_fixes = fx_lon_fixes
-        self.fx_ny_fixes = fx_ny_fixes
-        self.swaps_lon_fixes = swaps_lon_fixes
-        self.swaps_ny_fixes = swaps_ny_fixes
+        self.fx_fixes = fx_fixes
+        self.swaps_fixes = swaps_fixes
+        self.spreads = spreads
         log.setLevel(logging_level)
 
         self.ma_window = ma_window
-        self.currencies = fx_lon_fixes.columns
-        self.countries = [cur[:3] for cur in self.currencies]
+        self.currencies = fx_fixes.columns
+        self.countries = [cur[:3] for cur in self.currencies] + ["USD"]
+
         # initialize positions
         self.positions = pd.DataFrame(
-            index=fx_lon_fixes.index, columns=self.currencies, dtype=float
-        )
-        self.positions.fillna(0, inplace=True)
+            index=fx_fixes.index, columns=self.currencies, dtype=float
+        ).fillna(0)
         # initialize signals for LON and NY fixes
-        self.signals_lon = pd.DataFrame(
-            index=fx_lon_fixes.index, columns=self.currencies, dtype=int
-        )
-        self.signals_lon.fillna(0, inplace=True)
-        self.signals_ny = self.signals_lon.copy()
+        self.signal = pd.DataFrame(
+            index=fx_fixes.index, columns=self.currencies, dtype=int
+        ).fillna(0)
 
     def compute_signals(self, fix: Fixes):
         countries, ma_window = self.countries, self.ma_window
