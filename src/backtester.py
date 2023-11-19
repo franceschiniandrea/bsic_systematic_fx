@@ -55,34 +55,38 @@ class Backtest:
             index=fx_fixes.index, columns=self.currencies, dtype=int
         ).fillna(0)
 
-    def compute_signals(self, fix: Fixes):
+    def compute_signals(self):
         countries, ma_window = self.countries, self.ma_window
+        swaps_data, signal = self.swaps_fixes, self.signal
 
-        if fix == Fixes.LON:
-            swaps_data = self.swaps_lon_fixes
-            signals = self.signals_lon
-        else:
-            swaps_data = self.swaps_ny_fixes
-            signals = self.signals_ny
-
-        pairs = ["".join(pair) for pair in combinations(countries, 2)]
+        pairs = [
+            "".join(pair) for pair in combinations(countries, 2)
+        ]  # create all possible pairs of countries
         subsignals = pd.DataFrame(columns=pairs, dtype=float, index=swaps_data.index)
         for i, country1 in enumerate(countries):
             country1_cur = country1 + "USD"
             for country2 in countries[i + 1 :]:
-                country2_cur = country2 + "USD"
+                country2_cur = country2 + "USD" if country2 != "USD" else country2
                 # print("-" * 50)
                 # print(swaps_data[country1_cur], swaps_data[country2_cur])
                 # print("-" * 50)
                 diff = swaps_data[country1_cur] - swaps_data[country2_cur]
-                avg = diff.rolling(
-                    ma_window,
-                ).mean()
+
+                # to make sure that
+                # - avg for london is calculated using lon data
+                # - avg for ny is calculated using ny data
+                avg = pd.Series(index=diff.index, dtype=float)
+                avg.loc[avg.index.hour == 16] = (
+                    diff[diff.index.hour == 16].rolling(ma_window).mean()
+                )
+                avg.loc[avg.index.hour == 22] = (
+                    diff[diff.index.hour == 22].rolling(ma_window).mean()
+                )
 
                 subsignals_col = (diff - avg) / np.abs(avg)
-                log.debug(f"diff for {country1}-{country2}:\n{diff}")
-                log.debug(f"avg for {country1}-{country2}:\n{avg}")
-                log.debug(f"subsignals for {country1}-{country2}:\n{subsignals_col}")
+                # log.debug(f"diff for {country1}-{country2}:\n{diff}")
+                # log.debug(f"avg for {country1}-{country2}:\n{avg}")
+                # log.debug(f"subsignals for {country1}-{country2}:\n{subsignals_col}")
 
                 subsignals[country1 + country2] = subsignals_col
 
