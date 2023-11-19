@@ -193,6 +193,6 @@ class Backtest:
         print(df)
 
     def run(self):
-        self.compute_signals(Fixes.LON)
-        self.compute_positions(Fixes.LON)
+        self.compute_signals()
+        self.compute_positions()
         self.compute_pnl()
