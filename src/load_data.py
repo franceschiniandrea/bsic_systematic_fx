@@ -56,4 +56,9 @@ def load_data(data_dir: str = "data"):
         countries_to_fx[col.split()[0][:2]] for col in swaps_ny_fix.columns
     ]
 
+    swaps_lon_fix.sort_index(inplace=True)
+    swaps_ny_fix.sort_index(inplace=True)
+    fx_lon_fix.sort_index(inplace=True)
+    fx_lon_fix.sort_index(inplace=True)
+
     return fx_lon_fix, fx_ny_fix, swaps_lon_fix, swaps_ny_fix
