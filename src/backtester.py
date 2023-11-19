@@ -25,6 +25,10 @@ class Backtest:
         ma_window: int = 15,
         logging_level: int = 0,
     ) -> None:
+        self.fx_lon_fixes = fx_lon_fixes
+        self.fx_ny_fixes = fx_ny_fixes
+        self.swaps_lon_fixes = swaps_lon_fixes
+        self.swaps_ny_fixes = swaps_ny_fixes
         log.setLevel(logging_level)
 
         self.ma_window = ma_window
