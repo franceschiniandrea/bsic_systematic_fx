@@ -139,18 +139,12 @@ class Backtest:
     def compute_pnl(self):
         log.debug("-" * 20 + "COMPUTE PNL" + "-" * 20)
         positions = self.positions
+        tc = self.compute_transaction_costs().reindex(columns=positions.columns)
+        returns = self.fx_fixes.pct_change()
 
-        returns = self.fx_lon_fixes.pct_change()
-        log.debug(f"returns:\n{returns}")
-        log.debug(f"positions (shifted):\n{positions.shift(1)}")
-        positions, returns = positions.align(returns, join="outer", axis=1)
-        print(positions.columns, returns.columns)
-        log.debug(f"prod:\n{returns * positions.shift(1)}")
-        log.debug(f"prod2:\n{returns * positions}")
-        pnl = returns * positions.shift(1)
+        pnl = returns * positions.shift(1) - tc
         pnl["total"] = pnl.sum(axis=1)
         pnl["total_pct"] = pnl["total"] / 1_000_000
-        log.debug(f"pnl:\n{pnl}")
 
         self.pnl = pnl
 
