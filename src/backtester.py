@@ -1,4 +1,7 @@
 import logging
+import sys
+from enum import Enum
+from itertools import combinations
 from locale import currency
 from typing import Literal
 
@@ -6,7 +9,10 @@ import numpy as np
 import pandas as pd
 
 # TODO implement slippage and transaction costs
+logging.basicConfig(stream=sys.stdout)
 log = logging.getLogger()
+
+Fixes = Enum("Fixes", ["LON", "NY"])
 
 
 class Backtest:
@@ -17,11 +23,9 @@ class Backtest:
         swaps_lon_fixes: pd.DataFrame,
         swaps_ny_fixes: pd.DataFrame,
         ma_window: int = 15,
+        logging_level: int = 0,
     ) -> None:
-        self.fx_lon_fixes = fx_lon_fixes.astype(float)
-        self.fx_ny_fixes = fx_ny_fixes.astype(float)
-        self.swaps_lon_fixes = swaps_lon_fixes.astype(float)
-        self.swaps_ny_fixes = swaps_ny_fixes.astype(float)
+        log.setLevel(logging_level)
 
         self.ma_window = ma_window
         self.currencies = fx_lon_fixes.columns
