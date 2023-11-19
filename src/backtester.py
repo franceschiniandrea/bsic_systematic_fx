@@ -132,12 +132,20 @@ class Backtest:
         )
         signal["rebalance"] = rebalancedf["rebalance"]
 
+    def compute_positions(self, target_gross_exposure: float = 1_000_000):
         log.debug("-" * 20 + "COMPUTE POSITIONS" + "-" * 20)
 
-        signal = self.signals_lon if fix == Fixes.LON else self.signals_ny
+        signal = self.signal.drop("rebalance", axis=1)
 
         base_amt = target_gross_exposure / signal.abs().sum(axis=1)
         nominal_exposures = signal * base_amt.to_numpy().reshape(-1, 1)
+
+        # do not rebalance when rebalance == False
+        nominal_exposures.loc[
+            (self.signal["rebalance"] == False) & ~(nominal_exposures.index.hour == 16)
+        ] = np.nan
+        nominal_exposures.ffill(inplace=True)
+        print(nominal_exposures.tail(15))
         self.positions[:] = nominal_exposures
         print("POS COLS", self.positions.columns)
 
