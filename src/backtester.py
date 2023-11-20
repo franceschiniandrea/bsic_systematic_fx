@@ -129,7 +129,9 @@ class Backtest:
         print("REBALANCE", not_rebalance)
         self.not_rebalance = not_rebalance
 
-    def compute_positions(self, target_gross_exposure: float = 1_000_000):
+    def compute_positions(
+        self, target_gross_exposure: float = 1_000_000, rebalancing: str | None = None
+    ):
         log.debug("-" * 20 + "COMPUTE POSITIONS" + "-" * 20)
 
         signal = self.signal
@@ -151,6 +153,16 @@ class Backtest:
         print(nominal_exposures.tail(15))
         self.positions[:] = nominal_exposures
         print("POS COLS", self.positions.columns)
+
+        if rebalancing is not None:
+            if rebalancing == "W-MON":
+                positions = self.positions
+                monthly_pos: pd.DataFrame = (
+                    positions[positions.index.hour == 16].resample("W-MON").last()
+                )
+                monthly_pos.index = monthly_pos.index.map(lambda x: x.replace(hour=16))
+                new_positions = monthly_pos.reindex(positions.index, method="ffill")
+                self.positions[:] = new_positions
 
     def compute_transaction_costs(self):
         log.debug("-" * 20 + "COMPUTE TC" + "-" * 20)
@@ -195,7 +207,7 @@ class Backtest:
 
         print(df)
 
-    def run(self):
+    def run(self, rebalancing_freq):
         self.compute_signals()
         self.compute_positions()
         self.compute_pnl()
