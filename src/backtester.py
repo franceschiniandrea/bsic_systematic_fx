@@ -67,20 +67,18 @@ class Backtest:
             country1_cur = country1 + "USD"
             for country2 in countries[i + 1 :]:
                 country2_cur = country2 + "USD" if country2 != "USD" else country2
-                # print("-" * 50)
-                # print(swaps_data[country1_cur], swaps_data[country2_cur])
-                # print("-" * 50)
                 diff = swaps_data[country1_cur] - swaps_data[country2_cur]
 
                 # to make sure that
                 # - avg for london is calculated using lon data
                 # - avg for ny is calculated using ny data
                 avg = pd.Series(index=diff.index, dtype=float)
-                avg.loc[avg.index.hour == 16] = (
-                    diff[diff.index.hour == 16].rolling(ma_window).mean()
+                # lon_time = pd.to_datetime(avg.index, utc=True).year
+                avg.loc[avg.index.hour == 16] = (  # type: ignore
+                    diff[diff.index.hour == 16].rolling(ma_window).mean()  # type: ignore
                 )
-                avg.loc[avg.index.hour == 22] = (
-                    diff[diff.index.hour == 22].rolling(ma_window).mean()
+                avg.loc[avg.index.hour == 22] = (  # type: ignore
+                    diff[diff.index.hour == 22].rolling(ma_window).mean()  # type: ignore
                 )
 
                 subsignals_col = (diff - avg) / np.abs(avg)
