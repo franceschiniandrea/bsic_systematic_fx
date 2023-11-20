@@ -117,31 +117,36 @@ class Backtest:
                 signal[country2 + "USD"] -= col_data
 
         # compute if the strategy should rebalance on that day
-        rebalancedf = signal.copy()
-        rebalancedf["diff"] = np.nan
-        rebalancedf.loc[rebalancedf.index.hour == 22, "diff"] = (
-            rebalancedf.diff()[rebalancedf.index.hour == 22].abs().sum(axis=1)
+        not_rebalance = signal.copy()
+        should_not_rebalance = np.where(
+            not_rebalance.diff().loc[not_rebalance.index.hour == 22].abs() > 3,  # type: ignore
+            False,
+            True,
         )
-        rebalancedf["rebalance"] = rebalancedf["diff"] > 14
-        print("rebalance?\n", rebalancedf.tail(20))
-        print(rebalancedf[rebalancedf["rebalance"] == True].tail(20))
-        print(
-            f'rebalancing on {len(rebalancedf[rebalancedf["rebalance"] == True])} days (out of {len(rebalancedf) / 2 })'
-        )
-        signal["rebalance"] = rebalancedf["rebalance"]
+
+        not_rebalance.loc[not_rebalance.index.hour == 22] = should_not_rebalance  # type: ignore
+        not_rebalance.loc[not_rebalance.index.hour == 16] = False  # type: ignore
+        print("REBALANCE", not_rebalance)
+        self.not_rebalance = not_rebalance
 
     def compute_positions(self, target_gross_exposure: float = 1_000_000):
         log.debug("-" * 20 + "COMPUTE POSITIONS" + "-" * 20)
 
-        signal = self.signal.drop("rebalance", axis=1)
+        signal = self.signal
 
         base_amt = target_gross_exposure / signal.abs().sum(axis=1)
         nominal_exposures = signal * base_amt.to_numpy().reshape(-1, 1)
 
+        print("NOMEXP", np.where(self.not_rebalance, np.nan, nominal_exposures))
+        print(self.not_rebalance)
+
         # do not rebalance when rebalance == False
-        nominal_exposures.loc[
-            (self.signal["rebalance"] == False) & ~(nominal_exposures.index.hour == 16)
-        ] = np.nan
+        nominal_exposures = pd.DataFrame(
+            np.where(self.not_rebalance, np.nan, nominal_exposures),
+            index=nominal_exposures.index,
+            columns=nominal_exposures.columns,
+        )
+
         nominal_exposures.ffill(inplace=True)
         print(nominal_exposures.tail(15))
         self.positions[:] = nominal_exposures
