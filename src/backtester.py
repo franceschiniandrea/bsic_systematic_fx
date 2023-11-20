@@ -48,12 +48,12 @@ class Backtest:
 
         # initialize positions
         self.positions = pd.DataFrame(
-            index=fx_fixes.index, columns=self.currencies, dtype=float
-        ).fillna(0)
+            0, index=fx_fixes.index, columns=self.currencies, dtype=float
+        )
         # initialize signals for LON and NY fixes
         self.signal = pd.DataFrame(
-            index=fx_fixes.index, columns=self.currencies, dtype=int
-        ).fillna(0)
+            0, index=fx_fixes.index, columns=self.currencies, dtype=int
+        )
 
     def compute_signals(self):
         countries, ma_window = self.countries, self.ma_window
