@@ -10,7 +10,7 @@ import pandas as pd
 
 # TODO implement slippage and transaction costs
 logging.basicConfig(stream=sys.stdout)
-log = logging.getLogger()
+log = logging.getLogger("backtester")
 
 spreads_dict = {
     "spread": {
