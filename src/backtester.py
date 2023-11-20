@@ -7,6 +7,8 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
+from mpl_bsic import apply_bsic_logo, apply_bsic_style
 
 # TODO implement slippage and transaction costs
 logging.basicConfig(stream=sys.stdout)
@@ -202,12 +204,25 @@ class Backtest:
         sharpe = y_return / y_vol
 
         df = pd.DataFrame({"return": y_return, "vol": y_vol, "sharpe": sharpe})
-        df.index = df.index.year
+        df.index = pd.to_datetime(df.index).year
         df.loc["average"] = df.mean(axis=0)
 
         print(df)
 
+    def plot(self):
+        pnl = self.pnl
+        cumul_pnl = pnl["total"].cumsum()
+
+        fig, ax = plt.subplots(1, 1)
+        ax.set_title("Cumulative PnL")
+        apply_bsic_logo(fig, ax)
+        apply_bsic_style(fig, ax)
+
+        ax.plot(cumul_pnl.index, cumul_pnl)
+
+        plt.show()
+
     def run(self, rebalancing_freq):
         self.compute_signals()
-        self.compute_positions()
+        self.compute_positions(rebalancing=rebalancing_freq)
         self.compute_pnl()
