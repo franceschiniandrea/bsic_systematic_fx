@@ -36,6 +36,7 @@ def load_data(data_dir: str = "data"):
         return new_df
 
     fx_fixes = convert_fx(fx_fixes)
+    fx_fixes.sort_index(inplace=True)
 
     # Swaps Fixes
     countries_to_fx = {
@@ -63,13 +64,40 @@ def load_data(data_dir: str = "data"):
     swaps_ny_fix.columns = [
         countries_to_fx[col.split()[0][:2]] for col in swaps_ny_fix.columns
     ]
+
     process_dates(swaps_lon_fix, 16)
     process_dates(swaps_ny_fix, 22)
     swaps_fixes = [swaps_lon_fix, swaps_ny_fix]
     swaps_fixes = pd.concat(swaps_fixes)
-
-    # sort the indices
-    fx_fixes.sort_index(inplace=True)
     swaps_fixes.sort_index(inplace=True)
+    us_swaps = swaps_fixes["USD"]
 
-    return fx_fixes, swaps_fixes
+    swaps_fixes = swaps_fixes.reindex(fx_fixes.columns, axis=1)
+    swaps_fixes["USD"] = us_swaps
+
+    cpi_data = pd.read_excel(data_dir + "/fmt_infl_data.xlsx", index_col=0)
+    process_dates(cpi_data, 16)
+
+    def map_cols(col: str):
+        if col == "USD":
+            return col
+
+        return col + "USD"
+
+    cpi_data.columns = map(map_cols, list(cpi_data.columns))  # type: ignore
+    cpi_data = cpi_data.reindex(swaps_fixes.columns, axis=1)
+    cpi_data = cpi_data.reindex(swaps_fixes.index, axis=0, method="ffill")
+    cpi_data.sort_index(inplace=True)
+
+    real_swaps_rates = swaps_fixes - cpi_data
+
+    return fx_fixes, swaps_fixes, cpi_data, real_swaps_rates
+
+
+# _, swaps_fixes, cpi_data, real_swaps_rates = load_data()
+
+# print("swaps")
+# print(swaps_fixes)
+# print("CPI")
+# print(cpi_data)
+# print(real_swaps_rates)
