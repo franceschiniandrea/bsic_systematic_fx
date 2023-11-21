@@ -126,7 +126,7 @@ class Backtest:
 
         not_rebalance.loc[not_rebalance.index.hour == 22] = should_not_rebalance  # type: ignore
         not_rebalance.loc[not_rebalance.index.hour == 16] = False  # type: ignore
-        print("REBALANCE", not_rebalance)
+        log.debug(f"REBALANCE:\n{ not_rebalance}")
         self.not_rebalance = not_rebalance
 
     def compute_positions(
@@ -139,8 +139,8 @@ class Backtest:
         base_amt = target_gross_exposure / signal.abs().sum(axis=1)
         nominal_exposures = signal * base_amt.to_numpy().reshape(-1, 1)
 
-        print("NOMEXP", np.where(self.not_rebalance, np.nan, nominal_exposures))
-        print(self.not_rebalance)
+        log.debug(f"NOMEXP {np.where(self.not_rebalance, np.nan, nominal_exposures)}")
+        log.debug(f"{self.not_rebalance}")
 
         # do not rebalance when rebalance == False
         nominal_exposures = pd.DataFrame(
@@ -150,9 +150,7 @@ class Backtest:
         )
 
         nominal_exposures.ffill(inplace=True)
-        print(nominal_exposures.tail(15))
         self.positions[:] = nominal_exposures
-        print("POS COLS", self.positions.columns)
 
         if rebalancing is not None:
             if rebalancing == "W-MON":
@@ -205,7 +203,7 @@ class Backtest:
         df.index = pd.to_datetime(df.index).year
         df.loc["average"] = df.mean(axis=0)
 
-        print(df)
+        log.debug(df)
 
     def plot(self):
         pnl = self.pnl
