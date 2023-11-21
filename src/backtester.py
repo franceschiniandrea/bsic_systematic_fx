@@ -156,7 +156,7 @@ class Backtest:
             if rebalancing == "W-MON":
                 positions = self.positions
                 monthly_pos: pd.DataFrame = (
-                    positions[positions.index.hour == 16].resample("W-MON").last()
+                    positions[positions.index.hour == 16].resample("W-MON").last()  # type: ignore
                 )
                 monthly_pos.index = monthly_pos.index.map(lambda x: x.replace(hour=16))
                 new_positions = monthly_pos.reindex(positions.index, method="ffill")
