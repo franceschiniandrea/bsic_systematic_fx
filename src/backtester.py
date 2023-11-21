@@ -37,12 +37,10 @@ class Backtest:
         fx_fixes: pd.DataFrame,
         swaps_fixes: pd.DataFrame,
         ma_window: int = 15,
-        logging_level: int = 0,
     ) -> None:
         self.fx_fixes = fx_fixes
         self.swaps_fixes = swaps_fixes
         self.spreads = spreads
-        log.setLevel(logging_level)
 
         self.ma_window = ma_window
         self.currencies = fx_fixes.columns
