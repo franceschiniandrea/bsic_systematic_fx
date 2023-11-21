@@ -202,8 +202,11 @@ class Backtest:
         df = pd.DataFrame({"return": y_return, "vol": y_vol, "sharpe": sharpe})
         df.index = pd.to_datetime(df.index).year
         df.loc["average"] = df.mean(axis=0)
+        df.loc["average2000s"] = df.loc[2000:2011].mean(axis=0)
+        df.loc["average2010s"] = df.loc[2010:2021].mean(axis=0)
 
         log.debug(df)
+        return df
 
     def plot(self):
         pnl = self.pnl
