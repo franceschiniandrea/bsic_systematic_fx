@@ -107,8 +107,8 @@ class Backtest:
             # find dates where the subsignal is above the threshold
             # how does this handle NaNs?
 
-            col_data[(col_data.abs() > thresholds) & (col_data >= 0)] = 1
-            col_data[(col_data.abs() > thresholds) & (col_data < 0)] = -1
+            col_data[(col_data.abs() >= thresholds) & (col_data >= 0)] = 1
+            col_data[(col_data.abs() >= thresholds) & (col_data < 0)] = -1
             col_data[col_data.abs() != 1] = 0
 
             if country1 != "USD":
@@ -117,9 +117,11 @@ class Backtest:
                 signal[country2 + "USD"] -= col_data
 
         # compute if the strategy should rebalance on that day
-        not_rebalance = signal.copy()
+        not_rebalance = pd.DataFrame(
+            index=signal.index, columns=signal.columns, dtype=bool
+        )
         should_not_rebalance = np.where(
-            not_rebalance.diff().loc[not_rebalance.index.hour == 22].abs() > 3,  # type: ignore
+            signal.diff().loc[signal.index.hour == 22].abs() > 3,  # type: ignore
             False,
             True,
         )
