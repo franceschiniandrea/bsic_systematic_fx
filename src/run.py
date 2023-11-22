@@ -9,15 +9,16 @@ from matplotlib import pyplot as plt
 from backtester import Backtest
 from backtester_2 import Backtest as Backtest2
 from load_data import load_data
+from performance_stats import PerformanceStats
 
 log = logging.getLogger("backtester")
-log.setLevel(40)
+log.setLevel(10)
 
 fx_fixes, swaps_fixes, cpi_data, real_swaps_fixes = load_data()
 MA_WINDOW = 10
 
 backtest = Backtest(fx_fixes, real_swaps_fixes, ma_window=MA_WINDOW)
-backtest.run(rebalancing_freq=None)
+backtest.run(rebalancing_threshold=3, rebalancing_freq=None)
 perf1 = backtest.compute_stats()
 
 bt2 = Backtest2(fx_fixes, real_swaps_fixes, ma_window=MA_WINDOW)
@@ -25,7 +26,30 @@ bt2.run(rebalancing_freq=None)
 perf2 = bt2.compute_stats()
 
 pnl = backtest.pnl
-pnl["total"].to_csv("pnl.csv")
+stats = PerformanceStats(pnl)
+print(stats.probabilistic_sharpe())
+
+
+def plot_pnl_currencies(pnl):
+    pnl = pnl[pnl.index.year > 2010]
+    fig, axs = plt.subplots(5, 2)
+    fig.tight_layout()
+
+    for i, ax in enumerate(axs.flatten()):
+        currency = pnl.columns[i]
+        pnl[currency].cumsum().plot(ax=ax, title=currency)
+
+    fig.suptitle("PnL for each currency")
+
+    plt.show()
+
+
+# real_swaps_fixes.index = real_swaps_fixes.index.map(lambda x: x.tz_localize(None))
+# try:
+#     real_swaps_fixes.to_excel("real_swaps_fixes.xlsx")
+# except:
+#     print("error occured")
+# plot_pnl_currencies(pnl)
 
 print(perf1)
 print(perf2)
