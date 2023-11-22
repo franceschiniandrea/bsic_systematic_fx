@@ -55,7 +55,7 @@ class Backtest:
             0, index=fx_fixes.index, columns=self.currencies, dtype=int
         )
 
-    def compute_signals(self):
+    def compute_signals(self, rebalancing_threshold: int):
         countries, ma_window = self.countries, self.ma_window
         swaps_data, signal = self.swaps_fixes, self.signal
 
@@ -82,10 +82,6 @@ class Backtest:
                 )
 
                 subsignals_col = (diff - avg) / np.abs(avg)
-                # log.debug(f"diff for {country1}-{country2}:\n{diff}")
-                # log.debug(f"avg for {country1}-{country2}:\n{avg}")
-                # log.debug(f"subsignals for {country1}-{country2}:\n{subsignals_col}")
-
                 subsignals[country1 + country2] = subsignals_col
 
         # we now have the subsignals for all dates for all combinations of countries
@@ -121,7 +117,7 @@ class Backtest:
             index=signal.index, columns=signal.columns, dtype=bool
         )
         should_not_rebalance = np.where(
-            signal.diff().loc[signal.index.hour == 22].abs() > 3,  # type: ignore
+            signal.diff().loc[signal.index.hour == 22].abs() > rebalancing_threshold,  # type: ignore
             False,
             True,
         )
