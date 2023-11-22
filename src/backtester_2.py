@@ -55,7 +55,7 @@ class Backtest:
             0, index=fx_fixes.index, columns=self.currencies, dtype=int
         )
 
-    def compute_signals(self):
+    def compute_signals(self, rebalancing_threshold: int):
         countries, ma_window = self.countries, self.ma_window
         swaps_data, signal = self.swaps_fixes, self.signal
 
@@ -72,20 +72,9 @@ class Backtest:
                 # to make sure that
                 # - avg for london is calculated using lon data
                 # - avg for ny is calculated using ny data
-                avg = pd.Series(index=diff.index, dtype=float)
-                # lon_time = pd.to_datetime(avg.index, utc=True).year
-                avg.loc[avg.index.hour == 16] = (  # type: ignore
-                    diff[diff.index.hour == 16].ewm(span=ma_window).mean()  # type: ignore
-                )
-                avg.loc[avg.index.hour == 22] = (  # type: ignore
-                    diff[diff.index.hour == 22].ewm(span=ma_window).mean()  # type: ignore
-                )
+                avg = diff.ewm(span=ma_window * 2).mean()
 
                 subsignals_col = (diff - avg) / np.abs(avg)
-                # log.debug(f"diff for {country1}-{country2}:\n{diff}")
-                # log.debug(f"avg for {country1}-{country2}:\n{avg}")
-                # log.debug(f"subsignals for {country1}-{country2}:\n{subsignals_col}")
-
                 subsignals[country1 + country2] = subsignals_col
 
         # we now have the subsignals for all dates for all combinations of countries
@@ -121,7 +110,7 @@ class Backtest:
             index=signal.index, columns=signal.columns, dtype=bool
         )
         should_not_rebalance = np.where(
-            signal.diff().loc[signal.index.hour == 22].abs() > 3,  # type: ignore
+            signal.diff().loc[signal.index.hour == 22].abs() > rebalancing_threshold,  # type: ignore
             False,
             True,
         )
@@ -129,6 +118,11 @@ class Backtest:
         not_rebalance.loc[not_rebalance.index.hour == 22] = should_not_rebalance  # type: ignore
         not_rebalance.loc[not_rebalance.index.hour == 16] = False  # type: ignore
         log.debug(f"REBALANCE:\n{ not_rebalance}")
+        not_rebalance_times = not_rebalance.sum().sum()
+        total_times = not_rebalance.shape[0] * not_rebalance.shape[1]
+        log.debug(
+            f"Rebalancing {total_times - not_rebalance_times} times out of {total_times} ({(total_times - not_rebalance_times) / total_times * 100:.2f}%)"
+        )
         self.not_rebalance = not_rebalance
 
     def compute_positions(
@@ -141,21 +135,20 @@ class Backtest:
         base_amt = target_gross_exposure / signal.abs().sum(axis=1)
         nominal_exposures = signal * base_amt.to_numpy().reshape(-1, 1)
 
-        log.debug(f"NOMEXP {np.where(self.not_rebalance, np.nan, nominal_exposures)}")
-        log.debug(f"{self.not_rebalance}")
-
         # do not rebalance when rebalance == False
         nominal_exposures = pd.DataFrame(
             np.where(self.not_rebalance, np.nan, nominal_exposures),
             index=nominal_exposures.index,
             columns=nominal_exposures.columns,
         )
+        log.debug(f"Nominal Exposures:\n{nominal_exposures}")
 
         nominal_exposures.ffill(inplace=True)
         self.positions[:] = nominal_exposures
 
         if rebalancing is not None:
             if rebalancing == "W-MON":
+                log.debug("Rebalancing weekly on Monday")
                 positions = self.positions
                 monthly_pos: pd.DataFrame = (
                     positions[positions.index.hour == 16].resample("W-MON").last()  # type: ignore
@@ -189,7 +182,6 @@ class Backtest:
         log.debug("-" * 20 + "COMPUTE STATS" + "-" * 20)
 
         pnl = self.pnl[["total", "total_pct"]].copy()
-        log.debug(f"pnl:\n{pnl}")
 
         def compute_return(col: pd.Series):
             return col.mean() * len(col)
@@ -207,7 +199,6 @@ class Backtest:
         df.loc["average2000s"] = df.loc[2000:2011].mean(axis=0)
         df.loc["average2010s"] = df.loc[2010:2021].mean(axis=0)
 
-        log.debug(df)
         return df
 
     def plot(self):
@@ -223,7 +214,11 @@ class Backtest:
 
         plt.show()
 
-    def run(self, rebalancing_freq):
-        self.compute_signals()
+    def run(
+        self,
+        rebalancing_threshold: int,
+        rebalancing_freq=None,
+    ):
+        self.compute_signals(rebalancing_threshold)
         self.compute_positions(rebalancing=rebalancing_freq)
         self.compute_pnl()
