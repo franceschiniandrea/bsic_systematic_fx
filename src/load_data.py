@@ -75,8 +75,10 @@ def load_data(data_dir: str = "data"):
     swaps_fixes = swaps_fixes.reindex(fx_fixes.columns, axis=1)
     swaps_fixes["USD"] = us_swaps
 
-    cpi_data = pd.read_excel(data_dir + "/fmt_infl_data.xlsx", index_col=0)
-    process_dates(cpi_data, 16)
+    cpi_data = pd.read_excel(data_dir + "/fmt_cpi_data.xlsx", index_col=0)
+    cpi_data.ffill(inplace=True)
+    cpi_est_data = cpi_data.rolling(12).mean()
+    process_dates(cpi_est_data, 16)
 
     def map_cols(col: str):
         if col == "USD":
@@ -84,14 +86,36 @@ def load_data(data_dir: str = "data"):
 
         return col + "USD"
 
-    cpi_data.columns = map(map_cols, list(cpi_data.columns))  # type: ignore
-    cpi_data = cpi_data.reindex(swaps_fixes.columns, axis=1)
-    cpi_data = cpi_data.reindex(swaps_fixes.index, axis=0, method="ffill")
-    cpi_data.sort_index(inplace=True)
+    cpi_est_data.columns = map(map_cols, list(cpi_est_data.columns))  # type: ignore
+    cpi_est_data = cpi_est_data.reindex(swaps_fixes.columns, axis=1)
+    cpi_est_data = cpi_est_data.reindex(swaps_fixes.index, axis=0, method="ffill")
+    cpi_est_data.sort_index(inplace=True)
 
-    real_swaps_rates = swaps_fixes - cpi_data
+    real_swaps_rates = swaps_fixes - cpi_est_data
 
     return fx_fixes, swaps_fixes, cpi_data, real_swaps_rates
+
+
+def load_em_data(data_path="data"):
+    fx_fixes = pd.read_excel(
+        "../data/em_data.xlsx", sheet_name="fx_fixes", index_col=0, parse_dates=True
+    )
+    swaps_fixes = pd.read_excel(
+        "../data/em_data.xlsx", sheet_name="swaps_fixes", index_col=0, parse_dates=True
+    )
+
+    _, swapsg10, _, _ = load_data(data_path)
+    usswaps = swapsg10["USD"]
+    usswaps = swaps_fixes[swaps_fixes.index.hour == 16]["USD"]
+    usswaps.index = usswaps.index.map(lambda x: x.replace(hour=0))
+    usswaps.index = usswaps.index.map(lambda x: x.tz_localize(None))
+
+    fx_fixes.sort_index(inplace=True)
+    swaps_fixes.sort_index(inplace=True)
+
+    fx_fixes = fx_fixes.merge(usswaps, left_index=True, right_index=True)
+
+    return fx_fixes, swaps_fixes
 
 
 # _, swaps_fixes, cpi_data, real_swaps_rates = load_data()
