@@ -130,10 +130,13 @@ class Backtest:
     ):
         log.debug("-" * 20 + "COMPUTE POSITIONS" + "-" * 20)
 
-        signal = self.signal
+        signal = self.signal.iloc[self.ma_window * 2 :]
 
         base_amt = target_gross_exposure / signal.abs().sum(axis=1)
         nominal_exposures = signal * base_amt.to_numpy().reshape(-1, 1)
+        nominal_exposures = nominal_exposures.reindex(
+            self.fx_fixes.index, method="ffill"
+        )
 
         # do not rebalance when rebalance == False
         nominal_exposures = pd.DataFrame(
@@ -196,8 +199,9 @@ class Backtest:
         df = pd.DataFrame({"return": y_return, "vol": y_vol, "sharpe": sharpe})
         df.index = pd.to_datetime(df.index).year
         df.loc["average"] = df.mean(axis=0)
-        df.loc["average2000s"] = df.loc[2000:2011].mean(axis=0)
-        df.loc["average2010s"] = df.loc[2010:2021].mean(axis=0)
+        if 2000 in list(df.index):
+            df.loc["average2000s"] = df.loc[2000:2011].mean(axis=0)
+        df.loc["average2010s"] = df.loc[2010:2020].mean(axis=0)
 
         return df
 
