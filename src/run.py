@@ -15,24 +15,38 @@ log = logging.getLogger("backtester")
 log.setLevel(10)
 
 fx_fixes, swaps_fixes, cpi_data, real_swaps_fixes = load_data()
-MA_WINDOW = 10
 
-backtest = Backtest(fx_fixes, real_swaps_fixes, ma_window=MA_WINDOW)
-backtest.run(rebalancing_threshold=3, rebalancing_freq=None)
+real_fx_fixes: pd.DataFrame = fx_fixes[
+    (fx_fixes.index.year >= 2010) & (fx_fixes.index.year <= 2020)  # type: ignore
+]
+real_swaps_fixes: pd.DataFrame = real_swaps_fixes[
+    (real_swaps_fixes.index.year >= 2010) & (real_swaps_fixes.index.year <= 2020)  # type: ignore
+]
+
+MA_WINDOW = 10
+REBAL_THRESHOLD = 3
+
+BT_FX = real_fx_fixes
+BT_SWAPS = real_swaps_fixes
+
+# real_swaps_fixes.index = real_swaps_fixes.index.map(lambda x: x.tz_localize(None))
+# real_swaps_fixes.to_excel("real_swaps_fixes.xlsx")
+
+backtest = Backtest(BT_FX, BT_SWAPS, ma_window=MA_WINDOW)
+backtest.run(rebalancing_threshold=REBAL_THRESHOLD, rebalancing_freq=None)
 perf1 = backtest.compute_stats()
 
-bt2 = Backtest2(fx_fixes, real_swaps_fixes, ma_window=MA_WINDOW)
-bt2.run(rebalancing_freq=None)
+bt2 = Backtest2(BT_FX, BT_SWAPS, ma_window=MA_WINDOW)
+bt2.run(rebalancing_freq=None, rebalancing_threshold=REBAL_THRESHOLD)
 perf2 = bt2.compute_stats()
 
-pnl = backtest.pnl
+pnl = bt2.pnl
 stats = PerformanceStats(pnl)
-print(stats.probabilistic_sharpe())
 
 
 def plot_pnl_currencies(pnl):
     pnl = pnl[pnl.index.year > 2010]
-    fig, axs = plt.subplots(5, 2)
+    fig, axs = plt.subplots(4, 3)
     fig.tight_layout()
 
     for i, ax in enumerate(axs.flatten()):
@@ -44,6 +58,7 @@ def plot_pnl_currencies(pnl):
     plt.show()
 
 
+plot_pnl_currencies(pnl)
 # real_swaps_fixes.index = real_swaps_fixes.index.map(lambda x: x.tz_localize(None))
 # try:
 #     real_swaps_fixes.to_excel("real_swaps_fixes.xlsx")
