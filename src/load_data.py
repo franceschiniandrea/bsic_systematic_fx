@@ -132,10 +132,5 @@ def load_em_data(data_path="data"):
     return fx_fixes, swaps_fixes
 
 
-# _, swaps_fixes, cpi_data, real_swaps_rates = load_data()
-
-# print("swaps")
-# print(swaps_fixes)
-# print("CPI")
-# print(cpi_data)
-# print(real_swaps_rates)
+def load_factors():
+    pass
