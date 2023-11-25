@@ -1,16 +1,11 @@
 import logging
 import sys
-from enum import Enum
-from itertools import combinations
-from locale import currency
-from typing import Literal
 
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from mpl_bsic import apply_bsic_logo, apply_bsic_style
 
-# TODO implement slippage and transaction costs
 logging.basicConfig(stream=sys.stdout)
 log = logging.getLogger("backtester")
 
@@ -31,16 +26,20 @@ spreads_dict = {
 spreads = pd.DataFrame.from_dict(spreads_dict, orient="index")
 
 
-class Backtest:
+class Backtester:
     def __init__(
         self,
         fx_fixes: pd.DataFrame,
         swaps_fixes: pd.DataFrame,
-        ma_window: int = 15,
+        ma_window: int,
+        rebalancing_threshold: int,
+        rebalancing_freq=None,
     ) -> None:
         self.fx_fixes = fx_fixes
         self.swaps_fixes = swaps_fixes
         self.spreads = spreads
+        self.rebalancing_threshold = rebalancing_threshold
+        self.rebalancing_freq = rebalancing_freq
 
         self.ma_window = ma_window
         self.currencies = fx_fixes.columns
@@ -50,87 +49,25 @@ class Backtest:
         self.positions = pd.DataFrame(
             0, index=fx_fixes.index, columns=self.currencies, dtype=float
         )
-        # initialize signals for LON and NY fixes
+        # initialize signals for LON and NY fixes (only LON if no NY is present)
         self.signal = pd.DataFrame(
             0, index=fx_fixes.index, columns=self.currencies, dtype=int
         )
 
-    def compute_signals(self, rebalancing_threshold: int):
-        countries, ma_window = self.countries, self.ma_window
-        swaps_data, signal = self.swaps_fixes, self.signal
-
-        pairs = [
-            "".join(pair) for pair in combinations(countries, 2)
-        ]  # create all possible pairs of countries
-        subsignals = pd.DataFrame(columns=pairs, dtype=float, index=swaps_data.index)
-        for i, country1 in enumerate(countries):
-            country1_cur = country1 + "USD"
-            for country2 in countries[i + 1 :]:
-                country2_cur = country2 + "USD" if country2 != "USD" else country2
-                diff = swaps_data[country1_cur] - swaps_data[country2_cur]
-
-                # to make sure that
-                # - avg for london is calculated using lon data
-                # - avg for ny is calculated using ny data
-                avg = diff.ewm(span=ma_window * 2).mean()
-
-                subsignals_col = (diff - avg) / np.abs(avg)
-                subsignals[country1 + country2] = subsignals_col
-
-        # we now have the subsignals for all dates for all combinations of countries
-
-        # compute the threshold for each country
-        subsignals["threshold"] = subsignals.abs().quantile(
-            axis=1, q=0.5, numeric_only=True
+    def compute_signal(self):
+        self.not_rebalance = pd.DataFrame(
+            0, index=self.fx_fixes.index, columns=self.currencies
         )
-        log.debug(f"subsignals:\n{subsignals}")
-
-        # compute the composite signals for each country
-        log.debug("-" * 20 + "COMPOSITE SIGNALS" + "-" * 20)
-        for col in subsignals.drop("threshold", axis=1).columns:
-            country1, country2 = col[:3], col[3:]
-
-            thresholds = subsignals["threshold"]
-            col_data = subsignals[col].copy()
-
-            # find dates where the subsignal is above the threshold
-            # how does this handle NaNs?
-
-            col_data[(col_data.abs() >= thresholds) & (col_data >= 0)] = 1
-            col_data[(col_data.abs() >= thresholds) & (col_data < 0)] = -1
-            col_data[col_data.abs() != 1] = 0
-
-            if country1 != "USD":
-                signal[country1 + "USD"] += col_data
-            if country2 != "USD":
-                signal[country2 + "USD"] -= col_data
-
-        # compute if the strategy should rebalance on that day
-        not_rebalance = pd.DataFrame(
-            index=signal.index, columns=signal.columns, dtype=bool
-        )
-        should_not_rebalance = np.where(
-            signal.diff().loc[signal.index.hour == 22].abs() > rebalancing_threshold,  # type: ignore
-            False,
-            True,
-        )
-
-        not_rebalance.loc[not_rebalance.index.hour == 22] = should_not_rebalance  # type: ignore
-        not_rebalance.loc[not_rebalance.index.hour == 16] = False  # type: ignore
-        log.debug(f"REBALANCE:\n{ not_rebalance}")
-        not_rebalance_times = not_rebalance.sum().sum()
-        total_times = not_rebalance.shape[0] * not_rebalance.shape[1]
-        log.debug(
-            f"Rebalancing {total_times - not_rebalance_times} times out of {total_times} ({(total_times - not_rebalance_times) / total_times * 100:.2f}%)"
-        )
-        self.not_rebalance = not_rebalance
 
     def compute_positions(
-        self, target_gross_exposure: float = 1_000_000, rebalancing: str | None = None
+        self,
+        target_gross_exposure: float = 1_000_000,
     ):
         log.debug("-" * 20 + "COMPUTE POSITIONS" + "-" * 20)
 
         signal = self.signal.iloc[self.ma_window * 2 :]
+
+        log.debug(f"Signal: \n{signal.iloc[:30]}")
 
         base_amt = target_gross_exposure / signal.abs().sum(axis=1)
         nominal_exposures = signal * base_amt.to_numpy().reshape(-1, 1)
@@ -149,8 +86,8 @@ class Backtest:
         nominal_exposures.ffill(inplace=True)
         self.positions[:] = nominal_exposures
 
-        if rebalancing is not None:
-            if rebalancing == "W-MON":
+        if self.rebalancing_freq is not None:
+            if self.rebalancing_freq == "W-MON":
                 log.debug("Rebalancing weekly on Monday")
                 positions = self.positions
                 monthly_pos: pd.DataFrame = (
@@ -175,6 +112,7 @@ class Backtest:
         tc = self.compute_transaction_costs().reindex(columns=positions.columns)
         returns = self.fx_fixes.pct_change()
 
+        # spreads not available for EMs, so getting a df of nans
         pnl = returns * positions.shift(1) - tc
         pnl["total"] = pnl.sum(axis=1)
         pnl["total_pct"] = pnl["total"] / 1_000_000
@@ -192,16 +130,39 @@ class Backtest:
         def compute_vol(col):
             return col.std() * np.sqrt(len(col))
 
-        y_return = pnl["total_pct"].resample("Y").apply(compute_return)
-        y_vol = pnl["total_pct"].resample("Y").apply(compute_vol)
-        sharpe = y_return / y_vol
+        pnl_pct = pnl["total_pct"]
+        y_resample = pnl_pct.resample("Y")
 
-        df = pd.DataFrame({"return": y_return, "vol": y_vol, "sharpe": sharpe})
+        y_return = y_resample.apply(compute_return)
+        y_vol = y_resample.apply(compute_vol)
+        sharpe = y_return / y_vol
+        hit_ratio = y_resample.apply(lambda x: (x > 0).sum() / len(x))
+        kurt = y_resample.apply(lambda x: x.kurtosis())
+        skew = y_resample.apply(lambda x: x.skew())
+
+        df = pd.DataFrame(
+            {
+                "return": y_return,
+                "vol": y_vol,
+                "skew": skew,
+                "kurt": kurt,
+                "hit_ratio": hit_ratio,
+                "sharpe": sharpe,
+            }
+        )
         df.index = pd.to_datetime(df.index).year
         df.loc["average"] = df.mean(axis=0)
+        df.loc["average", "kurt"] = pnl_pct.kurt()
+        df.loc["average", "skew"] = pnl_pct.skew()
+
         if 2000 in list(df.index):
-            df.loc["average2000s"] = df.loc[2000:2011].mean(axis=0)
-        df.loc["average2010s"] = df.loc[2010:2020].mean(axis=0)
+            df.loc["2000-2010"] = df.loc[2000:2011].mean(axis=0)
+            df.loc["2000-2010", "kurt"] = pnl_pct.loc["2000":"2011"].kurt()
+            df.loc["2000-2010", "skew"] = pnl_pct.loc["2000":"2011"].skew()
+
+        df.loc["2010-2020"] = df.loc[2010:2020].mean(axis=0)
+        df.loc["2010-2020", "kurt"] = pnl_pct.loc["2010":"2021"].kurt()
+        df.loc["2010-2020", "skew"] = pnl_pct.loc["2010":"2021"].skew()
 
         return df
 
@@ -220,9 +181,8 @@ class Backtest:
 
     def run(
         self,
-        rebalancing_threshold: int,
-        rebalancing_freq=None,
     ):
-        self.compute_signals(rebalancing_threshold)
-        self.compute_positions(rebalancing=rebalancing_freq)
+        log.debug(f"Running Strategy for currencies:\n{self.currencies}")
+        self.compute_signal()
+        self.compute_positions()
         self.compute_pnl()
