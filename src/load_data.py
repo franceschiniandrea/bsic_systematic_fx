@@ -12,10 +12,10 @@ def process_dates(df: pd.DataFrame, hour: int):
 def load_data(data_dir: str = "data"):
     # FX Fixes
     fx_lon_fix = pd.read_excel(
-        data_dir + "/fx_fixes.xlsx", sheet_name="LON_Fix", index_col=0, parse_dates=True
+        data_dir + "/fx_fixes.xlsx", sheet_name="LON_Fix", index_col=0
     )
     fx_ny_fix = pd.read_excel(
-        data_dir + "/fx_fixes.xlsx", sheet_name="NY_Fix", index_col=0, parse_dates=True
+        data_dir + "/fx_fixes.xlsx", sheet_name="NY_Fix", index_col=0
     )
 
     fx_lon_fix.columns = [col.split()[0] for col in fx_lon_fix.columns]
@@ -98,22 +98,36 @@ def load_data(data_dir: str = "data"):
 
 def load_em_data(data_path="data"):
     fx_fixes = pd.read_excel(
-        "../data/em_data.xlsx", sheet_name="fx_fixes", index_col=0, parse_dates=True
+        data_path + "/em_data.xlsx",
+        sheet_name="fx_fixes",
+        index_col=0,
+        parse_dates=True,
     )
     swaps_fixes = pd.read_excel(
-        "../data/em_data.xlsx", sheet_name="swaps_fixes", index_col=0, parse_dates=True
+        data_path + "/em_data.xlsx",
+        sheet_name="swaps_fixes",
+        index_col=0,
+        parse_dates=True,
     )
 
     _, swapsg10, _, _ = load_data(data_path)
+
     usswaps = swapsg10["USD"]
-    usswaps = swaps_fixes[swaps_fixes.index.hour == 16]["USD"]
-    usswaps.index = usswaps.index.map(lambda x: x.replace(hour=0))
-    usswaps.index = usswaps.index.map(lambda x: x.tz_localize(None))
+    usswaps = usswaps[usswaps.index.hour == 16]  # type: ignore
+    # usswaps.index = usswaps.index.map(lambda x: x.replace(hour=0))
+    # usswaps.index = usswaps.index.map(lambda x: x.tz_localize(None))
 
     fx_fixes.sort_index(inplace=True)
     swaps_fixes.sort_index(inplace=True)
 
-    fx_fixes = fx_fixes.merge(usswaps, left_index=True, right_index=True)
+    process_dates(fx_fixes, 16)
+    process_dates(swaps_fixes, 16)
+
+    swaps_fixes = swaps_fixes.merge(usswaps, left_index=True, right_index=True)
+
+    fx_fixes.dropna(how="all", inplace=True)
+    swaps_fixes = swaps_fixes.reindex(fx_fixes.index, method="ffill")
+    swaps_fixes.ffill(inplace=True)
 
     return fx_fixes, swaps_fixes
 
