@@ -1,8 +1,6 @@
 import logging
-from itertools import product
 
 import pandas as pd
-from matplotlib import pyplot as plt
 
 from backtester.strategy_paper import PaperStrategy
 from load_data import load_data
@@ -25,14 +23,14 @@ sharpes = pd.DataFrame(index=MA_WINDOWS, columns=["sharpe"])
 for window in MA_WINDOWS:
     print(f"{window}")
 
-    bt = PaperStrategy(fx_fixes, swaps_fixes, window, REBAL_THRESHOLD, None)
+    bt = PaperStrategy(fx_fixes, swaps_fixes, window, REBAL_THRESHOLD, "W-MON")
 
     bt.run()
 
     perf = bt.compute_stats()
 
-    sharpes.loc[window, "sharpe"] = perf.loc["average", "sharpe"]
+    sharpes.loc[window, "sharpe"] = perf.loc["2010-2020", "sharpe"]
 
 print(sharpes)
 
-sharpes.to_excel("results/paper_tot.xlsx")
+sharpes.to_excel("results/paper_weeklyrebal_2010s.xlsx")
