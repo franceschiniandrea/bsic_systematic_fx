@@ -1,4 +1,5 @@
 import os
+from urllib.request import DataHandler
 
 import numpy as np
 import pandas as pd
@@ -93,6 +94,9 @@ def load_data(data_dir: str = "data"):
 
     real_swaps_rates = swaps_fixes - cpi_est_data
 
+    swaps_fixes.ffill(inplace=True)
+    fx_fixes.ffill(inplace=True)
+
     return fx_fixes, swaps_fixes, cpi_data, real_swaps_rates
 
 
@@ -132,5 +136,46 @@ def load_em_data(data_path="data"):
     return fx_fixes, swaps_fixes
 
 
-def load_factors():
-    pass
+def load_factors(data_path="data/"):
+    # pull mkt data
+    fx_data = pd.read_excel(
+        data_path + "fx_fixes.xlsx", sheet_name="LON_Fix", index_col=0
+    )
+    fx_data = fx_data.pct_change()
+    mkt_returns = fx_data.mean(axis=1).sort_index()
+    mkt_returns.name = "mkt"
+
+    # pull factors
+    factors_list = ["momentum", "value", "carry"]
+    factorsdf = []
+
+    for factor in factors_list:
+        df = pd.read_excel(
+            data_path + "factors_data.xlsx", sheet_name=factor, index_col=0
+        )
+        df.index = pd.to_datetime(df.index)
+        factorsdf.append(df)
+
+    factors = pd.concat(factorsdf, axis=1)
+    factors.sort_index(inplace=True)
+    factors.ffill(inplace=True)
+    factors = factors.pct_change()
+    factors.columns = factors_list
+
+    # handle pnl data
+    # strategy_returns = pnl['total_pct'].resample('d').sum().sort_index()
+    # strategy_returns.index = strategy_returns.index.map(lambda x: x.tz_localize(None))
+
+    # strategy_returns = strategy_returns.reindex(factors.index, method='ffill')
+
+    # merge everything together
+    data = pd.concat([mkt_returns, factors], axis=1)
+    data.replace(0, np.nan, inplace=True)
+    data.dropna(inplace=True)
+    # data[data.abs() < 1e-4] = np.nan
+    return data
+
+
+# data = load_factors()
+# print(data)
+# data.to_excel("factors_data_fmt.xlsx")
