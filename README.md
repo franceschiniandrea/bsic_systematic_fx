@@ -18,7 +18,10 @@
 
 The code is grouped in the following directories: 
 
-* `backtester`: code for the backtesting classes, which include the strategy as described by the paper, our improved version of the signal, and a signal which uses a rolling z-score instead of a simple Rolling MA
-* `notebooks`: code for creating the plots for the article, and the notebook where we performed the factor analysis
-* `utils`: code to load the data for currencies, swaps, cpi, and EM
-* `other`: the code used to run the strategies using scripts and to run robustness checks
+* `src`
+    * `backtester`: code for the backtesting classes, which include the strategy as described by the paper, our improved version of the signal, and a signal which uses a rolling z-score instead of a simple Rolling MA
+    * `notebooks`: code for creating the plots for the article, and the notebook where we performed the factor analysis
+    * `utils`: code to load the data for currencies, swaps, cpi, and EM
+    * `other`: the code used to run the strategies using scripts and to run robustness checks
+* `data`: the folder containing all the data used for the article
+* `results`: the spreadsheets which were then used in the final article
