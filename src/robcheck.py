@@ -4,13 +4,13 @@ from itertools import product
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from backtester.strategy_improved import ImprovedStrategy as ImprStratSigm
-from load_data import load_data
+from backtester.strategy_paper_improved import ImprovedStrategy
+from utils.load_data import load_data
 
 log = logging.getLogger("backtester")
 log.setLevel(30)
 
-fx_fixes, swaps_fixes, cpi_data, real_swaps_fixes = load_data()
+fx_fixes, swaps_fixes = load_data()
 swaps_fixes.ffill(inplace=True)
 fx_fixes.ffill(inplace=True)
 
@@ -27,7 +27,7 @@ for short, long in product(MA_WINDOW_SHORTS, MA_WINDOW_LONGS):
     print(f"{short}, {long}")
     MA_WINDOW = (short, long)
 
-    bt = ImprStratSigm(fx_fixes, swaps_fixes, short, long, REBAL_THRESHOLD, None)
+    bt = ImprovedStrategy(fx_fixes, swaps_fixes, short, long, REBAL_THRESHOLD, None)
 
     bt.run()
 
@@ -37,4 +37,4 @@ for short, long in product(MA_WINDOW_SHORTS, MA_WINDOW_LONGS):
 
 print(sharpes)
 
-sharpes.to_excel("results/improved_tot.xlsx")
+# sharpes.to_excel("results/improved_tot.xlsx")

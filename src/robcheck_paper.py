@@ -3,12 +3,12 @@ import logging
 import pandas as pd
 
 from backtester.strategy_paper import PaperStrategy
-from load_data import load_data
+from utils.load_data import load_data
 
 log = logging.getLogger("backtester")
 log.setLevel(30)
 
-fx_fixes, swaps_fixes, cpi_data, real_swaps_fixes = load_data()
+fx_fixes, swaps_fixes = load_data()
 swaps_fixes.ffill(inplace=True)
 fx_fixes.ffill(inplace=True)
 
@@ -33,4 +33,4 @@ for window in MA_WINDOWS:
 
 print(sharpes)
 
-sharpes.to_excel("results/paper_weeklyrebal_2010s.xlsx")
+# sharpes.to_excel("results/paper_weeklyrebal_2010s.xlsx")

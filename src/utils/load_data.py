@@ -70,28 +70,10 @@ def load_data(data_dir: str = "data"):
     swaps_fixes = swaps_fixes.reindex(fx_fixes.columns, axis=1)
     swaps_fixes["USD"] = us_swaps
 
-    cpi_data = pd.read_excel(data_dir + "/fmt_cpi_data.xlsx", index_col=0)
-    cpi_data.ffill(inplace=True)
-    cpi_est_data = cpi_data.rolling(12).mean()
-    _process_dates(cpi_est_data, 16)
-
-    def map_cols(col: str):
-        if col == "USD":
-            return col
-
-        return col + "USD"
-
-    cpi_est_data.columns = map(map_cols, list(cpi_est_data.columns))  # type: ignore
-    cpi_est_data = cpi_est_data.reindex(swaps_fixes.columns, axis=1)
-    cpi_est_data = cpi_est_data.reindex(swaps_fixes.index, axis=0, method="ffill")
-    cpi_est_data.sort_index(inplace=True)
-
-    real_swaps_rates = swaps_fixes - cpi_est_data
-
-    swaps_fixes.ffill(inplace=True)
     fx_fixes.ffill(inplace=True)
+    swaps_fixes.ffill(inplace=True)
 
-    return fx_fixes, swaps_fixes, cpi_data, real_swaps_rates
+    return fx_fixes, swaps_fixes
 
 
 def load_em_data(data_path="data"):
@@ -108,7 +90,7 @@ def load_em_data(data_path="data"):
         parse_dates=True,
     )
 
-    _, swapsg10, _, _ = load_data(data_path)
+    _, swapsg10 = load_data(data_path)
 
     usswaps = swapsg10["USD"]
     usswaps = usswaps[usswaps.index.hour == 16]  # type: ignore
@@ -118,8 +100,8 @@ def load_em_data(data_path="data"):
     fx_fixes.sort_index(inplace=True)
     swaps_fixes.sort_index(inplace=True)
 
-    process_dates(fx_fixes, 16)
-    process_dates(swaps_fixes, 16)
+    _process_dates(fx_fixes, 16)
+    _process_dates(swaps_fixes, 16)
 
     swaps_fixes = swaps_fixes.merge(usswaps, left_index=True, right_index=True)
 
@@ -130,8 +112,29 @@ def load_em_data(data_path="data"):
     return fx_fixes, swaps_fixes
 
 
-def load_real_data(data_path: str):
-    pass
+def load_real_data(data_dir: str):
+    fx_fixes, swaps_fixes = load_data(data_dir)
+
+    # load cpi data
+    cpi_data = pd.read_excel(data_dir + "/fmt_cpi_data.xlsx", index_col=0)
+    cpi_data.ffill(inplace=True)
+    cpi_est_data = cpi_data.rolling(12).mean()
+    _process_dates(cpi_est_data, 16)
+
+    def map_cols(col: str):
+        if col == "USD":
+            return col
+
+        return col + "USD"
+
+    cpi_est_data.columns = map(map_cols, list(cpi_est_data.columns))  # type: ignore
+    cpi_est_data = cpi_est_data.reindex(swaps_fixes.columns, axis=1)
+    cpi_est_data = cpi_est_data.reindex(swaps_fixes.index, axis=0, method="ffill")
+    cpi_est_data.sort_index(inplace=True)
+
+    real_swaps_fixes = swaps_fixes - cpi_est_data
+
+    return fx_fixes, real_swaps_fixes
 
 
 def load_factors(data_path="data/"):
@@ -159,12 +162,6 @@ def load_factors(data_path="data/"):
     factors.ffill(inplace=True)
     factors = factors.pct_change()
     factors.columns = factors_list
-
-    # handle pnl data
-    # strategy_returns = pnl['total_pct'].resample('d').sum().sort_index()
-    # strategy_returns.index = strategy_returns.index.map(lambda x: x.tz_localize(None))
-
-    # strategy_returns = strategy_returns.reindex(factors.index, method='ffill')
 
     # merge everything together
     data = pd.concat([mkt_returns, factors], axis=1)

@@ -1,12 +1,12 @@
 import logging
 
 from backtester.strategy_paper import PaperStrategy
-from load_data import load_data
+from utils.load_data import load_data
 
 log = logging.getLogger("backtester")
 log.setLevel(20)
 
-fx_fixes, swaps_fixes, cpi_data, real_swaps_fixes = load_data()
+fx_fixes, swaps_fixes = load_data()
 
 
 MA_WINDOW = 15
