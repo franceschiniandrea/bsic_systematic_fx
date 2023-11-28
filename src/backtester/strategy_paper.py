@@ -9,13 +9,6 @@ from backtester.backtester import Backtester
 log = logging.getLogger("backtester")
 
 
-def process_for_excel(df, name: str):
-    df = df.copy()
-    df.index = df.index.map(lambda x: x.tz_localize(None))
-
-    df.to_excel("output/" + name + ".xlsx")
-
-
 class PaperStrategy(Backtester):
     def compute_signal(self):
         countries, ma_window, rebalancing_threshold = (
@@ -99,6 +92,3 @@ class PaperStrategy(Backtester):
             f"Rebalancing {rebalancing_count} times out of {total_times / 2} ({rebalancing_pct:.2f}%)"
         )
         self.not_rebalance = not_rebalance
-
-        # process_for_excel(not_rebalance, "not_rebalance")
-        # process_for_excel(self.signal, "signal_paper")

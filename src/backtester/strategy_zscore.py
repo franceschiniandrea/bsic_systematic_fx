@@ -55,13 +55,6 @@ class ImprovedStrategy(Backtester):
 
                 subsignals[country2 + country1] = (zscore_st + zscore_lt) / 2
 
-                # signal_val = (expit(zscore_st) + expit(zscore_lt)) / 2
-
-                # if country1 != "USD":
-                #     signal[country1 + "USD"] += signal_val
-                # if country2 != "USD":
-                #     signal[country2 + "USD"] -= signal_val
-
             signal[country1 + "USD"] = subsignals.mean(axis=1)
 
         # process_for_excel(zscores, "zscoresdata")
