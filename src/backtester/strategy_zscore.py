@@ -5,15 +5,7 @@ import pandas as pd
 
 from backtester.backtester import Backtester
 
-logging.basicConfig(stream=sys.stdout)
 log = logging.getLogger("backtester")
-
-
-def process_for_excel(df, name: str):
-    df = df.copy()
-    df.index = df.index.map(lambda x: x.tz_localize(None))
-
-    df.to_excel("output/" + name + ".xlsx")
 
 
 class ImprovedStrategy(Backtester):
