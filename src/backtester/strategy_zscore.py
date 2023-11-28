@@ -1,10 +1,7 @@
 import logging
-import sys
-from itertools import combinations
 
 import numpy as np
 import pandas as pd
-from scipy.special import expit
 
 from backtester.backtester import Backtester
 
