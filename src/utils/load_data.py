@@ -1,76 +1,70 @@
-import os
-from urllib.request import DataHandler
-
 import numpy as np
 import pandas as pd
 
 
-def process_dates(df: pd.DataFrame, hour: int):
+def _process_dates(df: pd.DataFrame, hour: int):
     df.index = pd.to_datetime(df.index, utc=True)
     df.index = df.index.map(lambda x: x.replace(hour=hour))
 
 
+def _convert_fx(df: pd.DataFrame):
+    new_df = df.copy()
+    for col in df.columns:
+        if col[:3] == "USD":
+            new_df[col[3:] + "USD"] = 1 / df[col]
+            new_df.drop(col, axis=1, inplace=True)
+
+    return new_df
+
+
+COUNTRIES_TO_FX = {
+    "AD": "AUDUSD",
+    "CD": "CADUSD",
+    "SF": "CHFUSD",
+    "DK": "DKKUSD",
+    "EU": "EURUSD",
+    "BP": "GBPUSD",
+    "JY": "JPYUSD",
+    "NK": "NOKUSD",
+    "ND": "NZDUSD",
+    "SK": "SEKUSD",
+    "US": "USD",
+}
+
+
 def load_data(data_dir: str = "data"):
     # FX Fixes
-    fx_lon_fix = pd.read_excel(
-        data_dir + "/fx_fixes.xlsx", sheet_name="LON_Fix", index_col=0
-    )
-    fx_ny_fix = pd.read_excel(
-        data_dir + "/fx_fixes.xlsx", sheet_name="NY_Fix", index_col=0
-    )
+    fx_fixes_path = data_dir + "/fixes/fx_fixes.xlsx"
+    fx_lon_fix = pd.read_excel(fx_fixes_path, sheet_name="LON_Fix", index_col=0)
+    fx_ny_fix = pd.read_excel(fx_fixes_path, sheet_name="NY_Fix", index_col=0)
 
     fx_lon_fix.columns = [col.split()[0] for col in fx_lon_fix.columns]
     fx_ny_fix.columns = [col.split()[0] for col in fx_ny_fix.columns]
-    process_dates(fx_lon_fix, 16)
-    process_dates(fx_ny_fix, 22)
+    _process_dates(fx_lon_fix, 16)
+    _process_dates(fx_ny_fix, 22)
 
-    fx_fixes = [fx_lon_fix, fx_ny_fix]
-    fx_fixes = pd.concat(fx_fixes)
-
-    def convert_fx(df: pd.DataFrame):
-        new_df = df.copy()
-        for col in df.columns:
-            if col[:3] == "USD":
-                new_df[col[3:] + "USD"] = 1 / df[col]
-                new_df.drop(col, axis=1, inplace=True)
-
-        return new_df
-
-    fx_fixes = convert_fx(fx_fixes)
+    fx_fixes = pd.concat([fx_lon_fix, fx_ny_fix])
+    fx_fixes = _convert_fx(fx_fixes)
     fx_fixes.sort_index(inplace=True)
 
     # Swaps Fixes
-    countries_to_fx = {
-        "AD": "AUDUSD",
-        "CD": "CADUSD",
-        "SF": "CHFUSD",
-        "DK": "DKKUSD",
-        "EU": "EURUSD",
-        "BP": "GBPUSD",
-        "JY": "JPYUSD",
-        "NK": "NOKUSD",
-        "ND": "NZDUSD",
-        "SK": "SEKUSD",
-        "US": "USD",
-    }
-    swaps_lon_fix = pd.read_excel(
-        data_dir + "/swaps_fixes.xlsx", sheet_name="LON_Fix", index_col=0
-    )
-    swaps_ny_fix = pd.read_excel(
-        data_dir + "/swaps_fixes.xlsx", sheet_name="NY_Fix", index_col=0
-    )
+    swaps_fixes_path = data_dir + "/fixes/swaps_fixes.xlsx"
+    swaps_lon_fix = pd.read_excel(swaps_fixes_path, sheet_name="LON_Fix", index_col=0)
+    swaps_ny_fix = pd.read_excel(swaps_fixes_path, sheet_name="NY_Fix", index_col=0)
+
     swaps_lon_fix.columns = [
-        countries_to_fx[col.split()[0][:2]] for col in swaps_lon_fix.columns
+        COUNTRIES_TO_FX[col.split()[0][:2]] for col in swaps_lon_fix.columns
     ]
     swaps_ny_fix.columns = [
-        countries_to_fx[col.split()[0][:2]] for col in swaps_ny_fix.columns
+        COUNTRIES_TO_FX[col.split()[0][:2]] for col in swaps_ny_fix.columns
     ]
 
-    process_dates(swaps_lon_fix, 16)
-    process_dates(swaps_ny_fix, 22)
-    swaps_fixes = [swaps_lon_fix, swaps_ny_fix]
-    swaps_fixes = pd.concat(swaps_fixes)
+    _process_dates(swaps_lon_fix, 16)
+    _process_dates(swaps_ny_fix, 22)
+    swaps_fixes = pd.concat([swaps_lon_fix, swaps_ny_fix])
     swaps_fixes.sort_index(inplace=True)
+
+    # reindex swaps_fixes to match fx_fixes and append USD swaps data
     us_swaps = swaps_fixes["USD"]
 
     swaps_fixes = swaps_fixes.reindex(fx_fixes.columns, axis=1)
@@ -79,7 +73,7 @@ def load_data(data_dir: str = "data"):
     cpi_data = pd.read_excel(data_dir + "/fmt_cpi_data.xlsx", index_col=0)
     cpi_data.ffill(inplace=True)
     cpi_est_data = cpi_data.rolling(12).mean()
-    process_dates(cpi_est_data, 16)
+    _process_dates(cpi_est_data, 16)
 
     def map_cols(col: str):
         if col == "USD":
@@ -136,6 +130,10 @@ def load_em_data(data_path="data"):
     return fx_fixes, swaps_fixes
 
 
+def load_real_data(data_path: str):
+    pass
+
+
 def load_factors(data_path="data/"):
     # pull mkt data
     fx_data = pd.read_excel(
@@ -174,8 +172,3 @@ def load_factors(data_path="data/"):
     data.dropna(inplace=True)
     # data[data.abs() < 1e-4] = np.nan
     return data
-
-
-# data = load_factors()
-# print(data)
-# data.to_excel("factors_data_fmt.xlsx")
